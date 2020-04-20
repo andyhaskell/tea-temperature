@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/andyhaskell/tea-temperature/climacell"
 )
 
 func main() {
@@ -29,5 +32,18 @@ func main() {
 		log.Fatalf("error reading HTTP response body: %v", err)
 	}
 
-	log.Println("We got the response:", string(responseBytes))
+	var weatherSamples []climacell.Weather
+	if err := json.Unmarshal(responseBytes, &weatherSamples); err != nil {
+		log.Fatalf("error deserializing weather data")
+	}
+
+	for _, w := range weatherSamples {
+		if w.Temp != nil && w.Temp.Value != nil {
+			log.Printf("The temperature at %s is %f degrees %s\n",
+				w.ObservationTime.Value, *w.Temp.Value, w.Temp.Units)
+		} else {
+			log.Printf("No temperature data available at %s\n",
+				w.ObservationTime.Value)
+		}
+	}
 }
