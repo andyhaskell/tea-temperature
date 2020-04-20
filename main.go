@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -27,13 +26,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("error sending HTTP request: %v", err)
 	}
-	responseBytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatalf("error reading HTTP response body: %v", err)
-	}
 
 	var weatherSamples []climacell.Weather
-	if err := json.Unmarshal(responseBytes, &weatherSamples); err != nil {
+	d := json.NewDecoder(res.Body)
+	if err := d.Decode(&weatherSamples); err != nil {
 		log.Fatalf("error deserializing weather data")
 	}
 
