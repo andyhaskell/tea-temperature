@@ -2,6 +2,7 @@ package climacell
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -51,11 +52,41 @@ func (c *Client) HourlyForecast(args ForecastArgs) ([]Weather, error) {
 
 	// deserialize the response and return our weather data
 	defer res.Body.Close()
-	var weatherSamples []Weather
-	if err := json.NewDecoder(res.Body).Decode(&weatherSamples); err != nil {
-		return nil, err
-	}
-	return weatherSamples, nil
 
-	// [TODO] handle error responses
+	switch res.StatusCode {
+	case 200:
+		var weatherSamples []Weather
+		if err := json.NewDecoder(res.Body).Decode(&weatherSamples); err != nil {
+			return nil, err
+		}
+		return weatherSamples, nil
+	case 400, 401, 403, 500:
+		var errRes ErrorResponse
+		if err := json.NewDecoder(res.Body).Decode(&errRes); err != nil {
+			return nil, err
+		}
+
+		if errRes.StatusCode == 0 {
+			errRes.StatusCode = res.StatusCode
+		}
+		return nil, &errRes
+	default:
+		// handle unexpected status codes
+		return nil, fmt.Errorf("unexpected status code %d", res.StatusCode)
+	}
+}
+
+// ErrorResponse represents a JSON error response from a ClimaCell API
+// endpoint.
+type ErrorResponse struct {
+	StatusCode int    `json:"statusCode"`
+	ErrorCode  string `json:"errorCode"`
+	Message    string `json:"message"`
+}
+
+func (err *ErrorResponse) Error() string {
+	if err.ErrorCode == "" {
+		return fmt.Sprintf("%d API error: %s", err.StatusCode, err.Message)
+	}
+	return fmt.Sprintf("%d (%s) API error: %s", err.StatusCode, err.ErrorCode, err.Message)
 }
